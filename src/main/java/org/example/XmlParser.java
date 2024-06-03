@@ -23,14 +23,20 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.*;
 
 public class XmlParser {
 
-    static private String notUsedPath = "C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\NOT_USED\\";
-    static private String simplePath = "C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\SIMPLE\\";
-    static private String complexPath = "C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\COMPLEX\\";
-    static private String missingPath = "C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\MISSING\\";
+    private String outputDirectoryPath = "C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\Outputs\\"
+            + LocalDate.now() + "\\" + System.currentTimeMillis();
+    private String notUsedPath = outputDirectoryPath + "\\NOT_USED\\";
+    private String simplePath = outputDirectoryPath + "\\SIMPLE\\";
+    private String complexPath = outputDirectoryPath + "\\COMPLEX\\";
+    private String missingPath = outputDirectoryPath + "\\MISSING\\";
+    private String csvRefPath = "C:\\Users\\dorra\\Workspace\\ThalesProject\\cat_used_by_migrated_workspaces.xlsx";
+    static private Map<String, String> catIds ;
 
     public void parseXmlFile(String xmlInpuPath) {
         try {
@@ -43,7 +49,7 @@ public class XmlParser {
             testNode.appendChild(doc.getElementsByTagName("content").item(0));
             document.importNode(doc.getFirstChild(), true);*/
 
-            Map<String, String> catIds = extractIdsCsvRef("C:\\Users\\dorra\\Workspace\\ThalesProject\\cat_used_by_migrated_workspaces.xlsx");
+            catIds = extractIdsCsvRef(csvRefPath);
 
 
 
@@ -52,10 +58,25 @@ public class XmlParser {
             Files.createDirectories(Paths.get(complexPath));
             Files.createDirectories(Paths.get(missingPath));
 
+            for (File file : Paths.get(xmlInpuPath).toFile().listFiles()){
+                System.out.println("CatIds Size: " + catIds.size());
+                readAndClassifyLlNodeBlocs(docBuilder, file.getPath(), catIds);
+            }
+
+            /*System.out.println("CatIds Size: " + catIds.size());
             readAndClassifyLlNodeBlocs(docBuilder, xmlInpuPath, catIds);
+            System.out.println("CatIds Size: " + catIds.size());
+            readAndClassifyLlNodeBlocs(docBuilder,
+                    "C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\XmlInputs\\france_metadata.xml", catIds);
+            System.out.println("CatIds Size: " + catIds.size());*/
 
 
-
+            /*if(Files.exists(Paths.get(missingPath))){
+                for (File file : Paths.get(missingPath).toFile().listFiles())
+                    file.delete();
+                Files.delete(Paths.get(missingPath));
+            }
+            Files.createDirectories(Paths.get(missingPath));*/
 
             for (String id : catIds.keySet()){
                 writeXmlDoc(docBuilder.newDocument(), missingPath.concat(id).concat(".xslt"));
@@ -96,7 +117,6 @@ public class XmlParser {
         for (Row row : ws){
             String catId = row.getCell(0).getCellType().equals(CellType.NUMERIC) ?
                     String.valueOf((long)row.getCell(0).getNumericCellValue()): row.getCell(0).getStringCellValue();
-            catIds.put(catId, "Missing");
 
             System.out.println(catId);
             Categorie categorie = new Categorie(catId, row.getCell(1).getCellType().equals(CellType.NUMERIC) ?
@@ -105,6 +125,7 @@ public class XmlParser {
                             String.valueOf(row.getCell(2).getNumericCellValue()) : row.getCell(2).getStringCellValue(),
                     row.getCell(3).getCellType().equals(CellType.NUMERIC) ?
                             String.valueOf(row.getCell(3).getNumericCellValue()) : row.getCell(3).getStringCellValue());
+            catIds.put(catId, categorie.catPath);
             categories.add(categorie);
         }
         file.close();
@@ -112,8 +133,7 @@ public class XmlParser {
         return catIds;
     }
 
-    private void readAndClassifyLlNodeBlocs(DocumentBuilder docBuilder, String xmlInpuPath, Map<String, String> catIds)
-            throws SAXException, IOException{
+    private void readAndClassifyLlNodeBlocs(DocumentBuilder docBuilder, String xmlInpuPath, Map<String, String> catIds){
 
         try {
             Document xmlInputDoc = docBuilder.parse(xmlInpuPath);
@@ -121,22 +141,25 @@ public class XmlParser {
             //Read and classify llnodes
             NodeList llnodes = xmlInputDoc.getElementsByTagName("llnode");
 
-            System.out.println(llnodes.getLength());
+            System.out.println("llnodes length: " + llnodes.getLength());
 
             for (int i = 0; i < llnodes.getLength(); i++){
                 String catId = llnodes.item(i).getAttributes().getNamedItem("id").getTextContent();
-                if(catIds.get(catId) == null){
-                    Document docClassificationTest = docBuilder.newDocument();
-                    docClassificationTest.appendChild(docClassificationTest.importNode(llnodes.item(i), true));
-                    writeXmlDoc(docClassificationTest, notUsedPath.concat(catId).concat(".xslt"));
-                    catIds.remove(catId);
-                }else {
+                String objType = llnodes.item(i).getAttributes().getNamedItem("objtype").getTextContent();
+                if(! objType.equals("132")) {
+                    if(catIds.get(catId) == null){
+                        Document docClassificationTest = docBuilder.newDocument();
+                        docClassificationTest.appendChild(docClassificationTest.importNode(llnodes.item(i), true));
+                        writeXmlDoc(docClassificationTest, notUsedPath.concat(catId).concat(".xslt"));
+//                    catIds.remove(catId);
+                    }else {
 
-                    //Classify content
-                    Document docClassificationTest = docBuilder.newDocument();
-                    Element llnode = (Element)llnodes.item(i);
-                    classifyUsedId(docClassificationTest, llnode.getElementsByTagName("content").item(0), catId);
-                    catIds.remove(catId);
+                        //Classify content
+                        Document docClassificationTest = docBuilder.newDocument();
+                        Element llnode = (Element)llnodes.item(i);
+                        classifyUsedId(docClassificationTest, llnode.getElementsByTagName("content").item(0), catId, catIds.get(catId));
+                        catIds.remove(catId);
+                    }
                 }
             }
 
@@ -149,24 +172,30 @@ public class XmlParser {
 
     }
 
-    private void classifyUsedId(Document destDoc, Node content, String catId) throws TransformerException{
+    private void classifyUsedId(Document destDoc, Node content, String catId, String catPath) throws TransformerException{
 //        Node content = llNode.getLastChild();
         String nodeValue = content.getTextContent().replaceAll("\n", "").replaceAll(" ","");
 
         String nodeValueDecoded = new String(Base64.getDecoder().decode(nodeValue), StandardCharsets.UTF_8);
-        Element xslNode = destDoc.createElement("xsl");
-        Node contentNode = destDoc.createElement("content");
-        NamedNodeMap contentNodeAttrs = contentNode.getAttributes();
-        Attr id = destDoc.createAttribute("id");
-        id.setValue(catId);
-        contentNodeAttrs.setNamedItem(id);
-        contentNode.setTextContent(nodeValueDecoded.replace("DisplayName", "\n 'DisplayName'"));
-        xslNode.appendChild(contentNode);
-        destDoc.appendChild(xslNode);
+
 
         if(nodeValueDecoded.contains("'Type'=-18&gt") | nodeValueDecoded.contains("'FixedRows'=false") | nodeValueDecoded.contains("'Required'=true")){
+            Element xslNode = destDoc.createElement("xsl");
+            Node contentNode = destDoc.createElement("content");
+            NamedNodeMap contentNodeAttrs = contentNode.getAttributes();
+            Attr id = destDoc.createAttribute("id");
+            id.setValue(catId);
+            contentNodeAttrs.setNamedItem(id);
+            contentNode.setTextContent(nodeValueDecoded.replace("DisplayName", "\n 'DisplayName'"));
+            xslNode.appendChild(contentNode);
+            destDoc.appendChild(xslNode);
+
             writeXmlDoc(destDoc, complexPath.concat(catId).concat(".xslt"));
         }else {
+            SimpleXsltFormatter simpleXsltFormatter = new SimpleXsltFormatter(nodeValueDecoded, catId, catPath);
+            destDoc = simpleXsltFormatter.formatXslt(destDoc);
+            System.out.println("SimpleCo,tent: "+ destDoc.getFirstChild().getTextContent());
+
             writeXmlDoc(destDoc, simplePath.concat(catId).concat(".xslt"));
         }
     }
