@@ -1,5 +1,8 @@
 package org.example;
 
+import fr.aerow.opentext.oscriptdata.OScriptAssoc;
+import fr.aerow.opentext.oscriptdata.OScriptDataEmptyStringException;
+import fr.aerow.opentext.oscriptdata.OScriptParser;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -42,6 +45,7 @@ public class Main {
         // to see how IntelliJ IDEA suggests fixing it.
         XmlParser xmlParser = new XmlParser();
         xmlParser.parseXmlFile("C:\\Users\\dorra\\Workspace\\ThalesProject\\export_categories_prod\\XmlInputs");
+
     }
 
 }

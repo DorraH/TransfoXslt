@@ -17,9 +17,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -77,6 +75,11 @@ public class XmlParser {
                 Files.delete(Paths.get(missingPath));
             }
             Files.createDirectories(Paths.get(missingPath));*/
+
+            File missingIds = new File(outputDirectoryPath.concat("\\missing.txt"));
+            BufferedWriter writer = new BufferedWriter(new FileWriter(missingIds));
+            writer.write(catIds.keySet().toString());
+            writer.close();
 
             for (String id : catIds.keySet()){
                 writeXmlDoc(docBuilder.newDocument(), missingPath.concat(id).concat(".xslt"));
