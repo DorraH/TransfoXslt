@@ -197,7 +197,7 @@ public class XmlParser {
         }else {
             SimpleXsltFormatter simpleXsltFormatter = new SimpleXsltFormatter(nodeValueDecoded, catId, catPath);
             destDoc = simpleXsltFormatter.formatXslt(destDoc);
-            System.out.println("SimpleCo,tent: "+ destDoc.getFirstChild().getTextContent());
+            System.out.println("SimpleContent: "+ destDoc.getFirstChild().getTextContent());
 
             writeXmlDoc(destDoc, simplePath.concat(catId).concat(".xslt"));
         }

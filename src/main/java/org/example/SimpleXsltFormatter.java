@@ -1,5 +1,6 @@
 package org.example;
 
+import fr.aerow.opentext.oscriptdata.*;
 import org.w3c.dom.*;
 
 import java.util.ArrayList;
@@ -32,23 +33,56 @@ public class SimpleXsltFormatter implements XsltFormatter{
         Element xslTemplateNode = destDoc.createElement("xsl:template");
         xslTemplateNode.setAttribute("match", "@*|node()");
         Element xslCopy = destDoc.createElement("xsl:copy");
-        Element xslApply = destDoc.createElement("xsl:apply-template");
+        Element xslApply = destDoc.createElement("xsl:apply-templates");
         xslApply.setAttribute("select", "@*|node()");
         xslCopy.appendChild(xslApply);
         xslTemplateNode.appendChild(xslCopy);
         xslStylesheet.appendChild(xslTemplateNode);
 
-        Element xslTemplateCategory = destDoc.createElement("xsl:templates");
+        Element xslTemplateCategory = destDoc.createElement("xsl:template");
         xslTemplateCategory.setAttribute("match", "category[contains(@name, '".concat(catPathName).concat("')]"));
 
         Element contentNode = destDoc.createElement("category");
         contentNode.setAttribute("name", catPathName.replace("Livelink Categories", "Sphere Categories"));
 
 
+        // Initiate OScriptParser
+        OScriptParser parser = new OScriptParser(decodedContent);
+        // Parse string and get result
+        OScriptAssoc data = null;
+        try {
+            data = (OScriptAssoc) parser.parse();
+        } catch (OScriptDataEmptyStringException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        if (data != null) {
+            System.out.println("data: "+data.get("Children").getType().toString());
+        }
+        OScriptList childList = (OScriptList) data.get("Children");
+        String children = data.get("Children").toOScript();
+
 //        List<String> categoryContent = Arrays.stream(decodedContent.split("(?='DisplayName')(.*?)")).toList();
         List<String> categoryContent = Arrays.stream(decodedContent.split("(?='DisplayName')")).toList();
-        categoryContent.forEach(content -> {
-            if(content.contains("'DisplayName'") && !content.contains("'ID'=1")){
+        childList.list.forEach(child -> {
+            OScriptAssoc childObj = (OScriptAssoc) child;
+            System.out.println("ID: "+childObj.get("ID"));
+            if(! childObj.get("ID").equals("1")){
+                String displayName = childObj.get("DisplayName").toString();
+
+                Element attribute = destDoc.createElement("attribute");
+                attribute.setAttribute("name", displayName);
+                Element xslValueOf = destDoc.createElement("xsl:value-of");
+                xslValueOf.setAttribute("select", "../category[@name='".concat(catPathName)
+                        .concat("']/attribute[@name='").concat(displayName).concat("']"));
+                attribute.appendChild(xslValueOf);
+                contentNode.appendChild(attribute);
+
+                System.out.println("Child Attr: "+ childObj.get("DisplayName"));
+            }
+        });
+        /*categoryContent.forEach(content -> {
+            if(content.contains("'DisplayName'") && !content.contains("'ID'=1,")){
                 int startIndex = content.indexOf("'DisplayName''=");
                 int endIndex = content.indexOf(',');
                 String displayName = content.substring(startIndex + "'DisplayName''=".length(), endIndex);
@@ -61,8 +95,10 @@ public class SimpleXsltFormatter implements XsltFormatter{
                 attribute.appendChild(xslValueOf);
                 contentNode.appendChild(attribute);
 
+                System.out.println("Content Attr: "+ displayName);
+
             }
-        });
+        });*/
          /*NamedNodeMap contentNodeAttrs = contentNode.getAttributes();
         Attr id = destDoc.createAttribute("id");
         id.setValue(catId);
